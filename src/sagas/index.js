@@ -1,70 +1,34 @@
-import { all, call, put, select, take, takeEvery, takeLatest, actionChannel } from 'redux-saga/effects';
+import { all, call, put, select, take, takeEvery, takeLatest } from 'redux-saga/effects';
+import axios from 'axios';
 import * as types from '../actions/types';
 import { ENDPOINT } from '../constants';
 
-function* placeRobot(action) {
+function* processCommand(action) {
   try {
-    const { robot } = action;
-    const result = yield axios.post(`${ENDPOINT}`, robot).then(response => response.data);
-    yield put({ type: types.PLACE_ROBOT_SUCCESS, data: result });
-  } 
-  catch (error) {
-    yield put({ type: types.PLACE_ROBOT_FAILED, error });
-  }
-}
+    const { commandText } = action;
+    if (commandText) {
+      let commands = commandText.split(" ");
+      let result;
+      let id = 0;
 
-function* moveRobot(action) {
-  try {
-    const { movements, id } = action;
-    const result = yield axios.patch(`${ENDPOINT}${id}`, movements).then(response => response.data);
-    yield put({ type: types.MOVE_ROBOT_SUCCESS, data: result });
-  } 
-  catch (error) {
-    yield put({ type: types.MOVE_ROBOT_FAILED, error });
-  }
-}
-
-function* getRobotState(action) {
-  try {
-    const { id } = action;
-    const result = yield axios.get(`${ENDPOINT}${id}`).then(response => response.data);
-    yield put({ type: types.ROBOT_STATE_RECEIVED, data: result });
+      if (commands[0] == "PLACE") {
+        result = yield axios.post(`${ENDPOINT}`, { "CommandText": commandText }).then(response => response.data);
+      }
+      else if (commands[0] == "MOVE") {
+        result = yield axios.put(`${ENDPOINT}/${id}`, { "CommandText": commandText }).then(response => response.data);
+      }
+      else if (commands[0] == "REPORT" && commands.length ==1) {
+        result = yield axios.get(`${ENDPOINT}/${id}`).then(response => response.data);
+      }
+      yield put({ type: types.PROCESS_COMMAND_SUCCESS, data: result });
+    }
   }
   catch (error) {
-    yield put({ type: types.ROBOT_STATE_REQUEST_FAILED, error });
+    yield put({ type: types.PROCESS_COMMAND_FAILED, error });
   }
 }
 
-export function* rootSaga() {
-  yield all([
-    takeLatest(types.PLACE_ROBOT, placeRobot),
-    takeLatest(types.MOVE_ROBOT, moveRobot),
-    takeLatest(types.GET_ROBOT_STATE, getRobotState),
-  ])
+export default function* rootSaga() {
+  yield all([takeEvery(types.PROCESS_COMMAND, processCommand)]);
 }
 
-
-
-// export function* moveRobot(movements) {
-//   try {
-//     const endpoint = 'http://localhost:5000/api/robot';
-//     const response = yield call(fetch, endpoint);
-//     const data = yield response.json();
-//     yield put({ type: types.MOVE_ROBOT_SUCCESS, state: data });
-//   }
-//   catch (error) {
-//     yield put({ type: types.MOVE_ROBOT_FAILED, error });
-//   }
-// }
-
-// export function* getRobotState() {
-//   try {
-//     const endpoint = 'http://localhost:5000/api/robot';
-//     const response = yield call(fetch, endpoint);
-//     const data = yield response.json();
-//     yield put({ type: types.ROBOT_STATE_RECEIVED, state: data });
-//   }
-//   catch (error) {
-//     yield put({ type: types.ROBOT_STATE_REQUEST_FAILED, error });
-//   }
-// }
